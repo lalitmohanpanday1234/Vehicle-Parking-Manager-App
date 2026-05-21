@@ -1,0 +1,1849 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Vehicle Parking Manager | In/Out Tracker</title>
+
+    <!-- Tesseract.js OCR -->
+    <script src="https://cdn.jsdelivr.net/npm/tesseract.js@5.1.1/dist/tesseract.min.js">
+    </script>
+
+    <style>
+        :root {
+            --bg: #f1f5f9;
+            --surface: #ffffff;
+            --surface-alt: #f8fafc;
+            --primary: #1d4ed8;
+            --primary-light: #3b82f6;
+            --primary-dark: #1e3a8a;
+            --success: #059669;
+            --success-light: #d1fae5;
+            --warning: #d97706;
+            --warning-light: #fef3c7;
+            --danger: #dc2626;
+            --danger-light: #fee2e2;
+            --text: #1e293b;
+            --text-secondary: #64748b;
+            --text-muted: #94a3b8;
+            --border: #e2e8f0;
+            --border-light: #f1f5f9;
+            --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.05);
+            --shadow: 0 1px 3px rgba(0, 0, 0, 0.1), 0 1px 2px rgba(0, 0, 0, 0.06);
+            --shadow-md: 0 4px 6px rgba(0, 0, 0, 0.07), 0 2px 4px rgba(0, 0, 0, 0.06);
+            --shadow-lg: 0 10px 15px rgba(0, 0, 0, 0.1), 0 4px 6px rgba(0, 0, 0, 0.05);
+            --shadow-xl: 0 20px 25px rgba(0, 0, 0, 0.1), 0 10px 10px rgba(0, 0, 0, 0.04);
+            --radius-sm: 8px;
+            --radius: 12px;
+            --radius-lg: 16px;
+            --radius-xl: 20px;
+            --transition: 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+            --font-mono: 'SF Mono', 'Cascadia Code', 'Consolas', 'Monaco', monospace;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Inter', 'Segoe UI', system-ui, -apple-system, sans-serif;
+            background: var(--bg);
+            color: var(--text);
+            min-height: 100vh;
+            line-height: 1.5;
+            -webkit-font-smoothing: antialiased;
+            -moz-osx-font-smoothing: grayscale;
+        }
+
+        /* ========== HEADER ========== */
+        .header {
+            background: linear-gradient(135deg, #0f172a 0%, #1e3a5f 40%, #1d4ed8 100%);
+            padding: 16px 24px;
+            position: sticky;
+            top: 0;
+            z-index: 100;
+            box-shadow: var(--shadow-lg);
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            flex-wrap: wrap;
+            gap: 12px;
+        }
+        .header-brand {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+        .header-icon {
+            width: 44px;
+            height: 44px;
+            background: rgba(255, 255, 255, 0.15);
+            border-radius: var(--radius-sm);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 24px;
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+        }
+        .header-title {
+            font-size: 1.25rem;
+            font-weight: 700;
+            color: #fff;
+            letter-spacing: -0.02em;
+            white-space: nowrap;
+        }
+        .header-subtitle {
+            font-size: 0.75rem;
+            color: rgba(255, 255, 255, 0.7);
+            font-weight: 400;
+            letter-spacing: 0.02em;
+        }
+        .header-badge {
+            background: rgba(255, 255, 255, 0.2);
+            color: #fff;
+            padding: 6px 14px;
+            border-radius: 20px;
+            font-size: 0.8rem;
+            font-weight: 600;
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.25);
+            white-space: nowrap;
+            animation: pulse-badge 2s ease-in-out infinite;
+        }
+        @keyframes pulse-badge {
+            0%,
+            100% {
+                opacity: 1;
+            }
+            50% {
+                opacity: 0.75;
+            }
+        }
+        .live-dot {
+            display: inline-block;
+            width: 8px;
+            height: 8px;
+            background: #22c55e;
+            border-radius: 50%;
+            margin-right: 6px;
+            animation: live-pulse 1.5s ease-in-out infinite;
+        }
+        @keyframes live-pulse {
+            0%,
+            100% {
+                box-shadow: 0 0 0 0 rgba(34, 197, 94, 0.6);
+            }
+            50% {
+                box-shadow: 0 0 0 10px rgba(34, 197, 94, 0);
+            }
+        }
+
+        /* ========== MAIN LAYOUT ========== */
+        .main-container {
+            max-width: 1300px;
+            margin: 0 auto;
+            padding: 20px 16px 40px;
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            grid-template-rows: auto auto auto;
+            gap: 20px;
+        }
+        @media (max-width: 900px) {
+            .main-container {
+                grid-template-columns: 1fr;
+                gap: 16px;
+                padding: 12px 10px 30px;
+            }
+        }
+
+        /* ========== CARD ========== */
+        .card {
+            background: var(--surface);
+            border-radius: var(--radius-lg);
+            padding: 20px;
+            box-shadow: var(--shadow);
+            border: 1px solid var(--border);
+            transition: var(--transition);
+        }
+        .card:hover {
+            box-shadow: var(--shadow-md);
+        }
+        .card-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 16px;
+            flex-wrap: wrap;
+            gap: 8px;
+        }
+        .card-title {
+            font-size: 1rem;
+            font-weight: 700;
+            color: var(--text);
+            letter-spacing: -0.01em;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .card-title .icon-dot {
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            display: inline-block;
+        }
+        .icon-dot.camera {
+            background: #3b82f6;
+            animation: live-pulse 2s ease-in-out infinite;
+        }
+        .icon-dot.preview {
+            background: #f59e0b;
+        }
+        .icon-dot.table {
+            background: #059669;
+        }
+
+        /* Camera Section - spans full width on larger screens */
+        .camera-section {
+            grid-column: 1 / -1;
+        }
+        @media (min-width: 901px) {
+            .camera-section {
+                display: grid;
+                grid-template-columns: 1fr 1fr;
+                gap: 20px;
+            }
+            .camera-section>.card {
+                margin: 0;
+            }
+        }
+
+        /* ========== CAMERA ========== */
+        .camera-container {
+            position: relative;
+            width: 100%;
+            aspect-ratio: 16/10;
+            background: #0f172a;
+            border-radius: var(--radius);
+            overflow: hidden;
+            box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.05);
+        }
+        .camera-container video {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            display: block;
+        }
+        .camera-placeholder {
+            position: absolute;
+            inset: 0;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            color: #94a3b8;
+            gap: 12px;
+            pointer-events: none;
+        }
+        .camera-placeholder .cam-icon {
+            font-size: 56px;
+            opacity: 0.5;
+        }
+        .camera-placeholder p {
+            font-size: 0.85rem;
+            opacity: 0.7;
+        }
+        .camera-overlay {
+            position: absolute;
+            inset: 0;
+            pointer-events: none;
+            border: 3px dashed rgba(255, 255, 255, 0.25);
+            border-radius: var(--radius);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        .camera-overlay .focus-rect {
+            width: 70%;
+            height: 35%;
+            border: 2px solid rgba(59, 130, 246, 0.6);
+            border-radius: 6px;
+            position: relative;
+        }
+        .camera-overlay .focus-rect::after {
+            content: 'Plate Area';
+            position: absolute;
+            top: -28px;
+            left: 50%;
+            transform: translateX(-50%);
+            font-size: 0.7rem;
+            color: rgba(255, 255, 255, 0.7);
+            background: rgba(0, 0, 0, 0.5);
+            padding: 3px 10px;
+            border-radius: 10px;
+            white-space: nowrap;
+        }
+        .camera-controls {
+            display: flex;
+            gap: 10px;
+            margin-top: 12px;
+            flex-wrap: wrap;
+        }
+
+        /* ========== BUTTONS ========== */
+        .btn {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            padding: 11px 20px;
+            font-size: 0.9rem;
+            font-weight: 600;
+            border-radius: var(--radius-sm);
+            border: none;
+            cursor: pointer;
+            transition: all var(--transition);
+            letter-spacing: 0.01em;
+            white-space: nowrap;
+            min-height: 44px;
+            position: relative;
+            overflow: hidden;
+            user-select: none;
+            -webkit-tap-highlight-color: transparent;
+        }
+        .btn:active {
+            transform: scale(0.96);
+        }
+        .btn-primary {
+            background: var(--primary);
+            color: #fff;
+            box-shadow: 0 2px 8px rgba(29, 78, 216, 0.3);
+        }
+        .btn-primary:hover {
+            background: #2563eb;
+            box-shadow: 0 4px 16px rgba(29, 78, 216, 0.4);
+            transform: translateY(-1px);
+        }
+        .btn-success {
+            background: var(--success);
+            color: #fff;
+            box-shadow: 0 2px 8px rgba(5, 150, 105, 0.3);
+        }
+        .btn-success:hover {
+            background: #047857;
+            box-shadow: 0 4px 16px rgba(5, 150, 105, 0.4);
+            transform: translateY(-1px);
+        }
+        .btn-warning {
+            background: #f59e0b;
+            color: #1e293b;
+            box-shadow: 0 2px 8px rgba(245, 158, 11, 0.3);
+        }
+        .btn-warning:hover {
+            background: #d97706;
+            color: #fff;
+            box-shadow: 0 4px 16px rgba(245, 158, 11, 0.4);
+            transform: translateY(-1px);
+        }
+        .btn-outline {
+            background: var(--surface);
+            color: var(--text);
+            border: 2px solid var(--border);
+        }
+        .btn-outline:hover {
+            border-color: var(--primary-light);
+            color: var(--primary);
+            background: #eff6ff;
+        }
+        .btn-danger {
+            background: #fff;
+            color: var(--danger);
+            border: 2px solid #fecaca;
+        }
+        .btn-danger:hover {
+            background: #fef2f2;
+            border-color: var(--danger);
+        }
+        .btn-sm {
+            padding: 7px 14px;
+            font-size: 0.78rem;
+            min-height: 34px;
+            border-radius: 6px;
+        }
+        .btn-xs {
+            padding: 4px 10px;
+            font-size: 0.7rem;
+            min-height: 28px;
+            border-radius: 5px;
+        }
+        .btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+            pointer-events: none;
+        }
+        .btn .spinner {
+            width: 16px;
+            height: 16px;
+            border: 2px solid transparent;
+            border-top-color: currentColor;
+            border-radius: 50%;
+            animation: spin 0.7s linear infinite;
+        }
+        @keyframes spin {
+            to {
+                transform: rotate(360deg);
+            }
+        }
+
+        /* ========== INPUT ========== */
+        .input-group {
+            display: flex;
+            gap: 8px;
+            flex-wrap: wrap;
+            align-items: center;
+        }
+        .input-field {
+            flex: 1;
+            min-width: 150px;
+            padding: 11px 14px;
+            font-size: 0.9rem;
+            font-weight: 500;
+            border: 2px solid var(--border);
+            border-radius: var(--radius-sm);
+            background: var(--surface-alt);
+            color: var(--text);
+            transition: all var(--transition);
+            letter-spacing: 0.02em;
+            font-family: var(--font-mono);
+            text-transform: uppercase;
+        }
+        .input-field:focus {
+            outline: none;
+            border-color: var(--primary-light);
+            box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+            background: #fff;
+        }
+        .input-field::placeholder {
+            text-transform: none;
+            font-family: inherit;
+            letter-spacing: normal;
+            color: var(--text-muted);
+        }
+
+        /* ========== PREVIEW IMAGE ========== */
+        .preview-image-container {
+            width: 100%;
+            aspect-ratio: 16/10;
+            border-radius: var(--radius);
+            overflow: hidden;
+            background: #f1f5f9;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border: 2px dashed var(--border);
+            position: relative;
+        }
+        .preview-image-container img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+        .preview-placeholder {
+            color: var(--text-muted);
+            font-size: 0.85rem;
+            text-align: center;
+            padding: 20px;
+        }
+
+        /* ========== OCR RESULT BADGE ========== */
+        .ocr-result {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 10px 14px;
+            border-radius: var(--radius-sm);
+            font-weight: 600;
+            font-size: 0.85rem;
+            flex-wrap: wrap;
+            animation: fadeInUp 0.3s ease-out;
+        }
+        .ocr-result.confidence-high {
+            background: #d1fae5;
+            color: #065f46;
+            border: 1px solid #a7f3d0;
+        }
+        .ocr-result.confidence-medium {
+            background: #fef3c7;
+            color: #92400e;
+            border: 1px solid #fde68a;
+        }
+        .ocr-result.confidence-low {
+            background: #fee2e2;
+            color: #991b1b;
+            border: 1px solid #fecaca;
+        }
+        @keyframes fadeInUp {
+            from {
+                opacity: 0;
+                transform: translateY(8px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        /* ========== STATS ROW ========== */
+        .stats-row {
+            grid-column: 1 / -1;
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+            gap: 14px;
+        }
+        .stat-card {
+            background: var(--surface);
+            border-radius: var(--radius);
+            padding: 16px 18px;
+            box-shadow: var(--shadow-sm);
+            border: 1px solid var(--border);
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            transition: var(--transition);
+        }
+        .stat-card:hover {
+            box-shadow: var(--shadow-md);
+        }
+        .stat-icon {
+            width: 42px;
+            height: 42px;
+            border-radius: var(--radius-sm);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 20px;
+            flex-shrink: 0;
+        }
+        .stat-icon.blue {
+            background: #eff6ff;
+            color: #3b82f6;
+        }
+        .stat-icon.green {
+            background: #d1fae5;
+            color: #059669;
+        }
+        .stat-icon.amber {
+            background: #fef3c7;
+            color: #d97706;
+        }
+        .stat-icon.purple {
+            background: #ede9fe;
+            color: #7c3aed;
+        }
+        .stat-value {
+            font-size: 1.5rem;
+            font-weight: 800;
+            letter-spacing: -0.02em;
+            line-height: 1;
+        }
+        .stat-label {
+            font-size: 0.72rem;
+            color: var(--text-secondary);
+            font-weight: 500;
+            text-transform: uppercase;
+            letter-spacing: 0.04em;
+        }
+
+        /* ========== TABLE SECTION ========== */
+        .table-section {
+            grid-column: 1 / -1;
+        }
+        .filter-bar {
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+            align-items: center;
+            margin-bottom: 14px;
+        }
+        .filter-bar .input-field {
+            max-width: 250px;
+            min-width: 160px;
+            font-family: var(--font-mono);
+            text-transform: uppercase;
+        }
+        .sort-btn-group {
+            display: flex;
+            gap: 0;
+            border-radius: var(--radius-sm);
+            overflow: hidden;
+            border: 2px solid var(--border);
+        }
+        .sort-btn {
+            padding: 9px 14px;
+            font-size: 0.78rem;
+            font-weight: 600;
+            border: none;
+            background: var(--surface);
+            color: var(--text-secondary);
+            cursor: pointer;
+            transition: all var(--transition);
+            white-space: nowrap;
+            border-right: 1px solid var(--border);
+            min-height: 38px;
+        }
+        .sort-btn:last-child {
+            border-right: none;
+        }
+        .sort-btn.active {
+            background: var(--primary);
+            color: #fff;
+            border-color: var(--primary);
+        }
+        .sort-btn:hover:not(.active) {
+            background: #f8fafc;
+        }
+        .table-wrapper {
+            overflow-x: auto;
+            border-radius: var(--radius);
+            border: 1px solid var(--border);
+            box-shadow: var(--shadow-sm);
+            -webkit-overflow-scrolling: touch;
+            max-height: 55vh;
+            overflow-y: auto;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            min-width: 750px;
+            font-size: 0.85rem;
+        }
+        table thead {
+            position: sticky;
+            top: 0;
+            z-index: 10;
+        }
+        table thead th {
+            background: #f8fafc;
+            padding: 12px 10px;
+            text-align: left;
+            font-weight: 700;
+            font-size: 0.75rem;
+            text-transform: uppercase;
+            letter-spacing: 0.04em;
+            color: var(--text-secondary);
+            border-bottom: 2px solid var(--border);
+            white-space: nowrap;
+        }
+        table tbody td {
+            padding: 10px;
+            border-bottom: 1px solid var(--border-light);
+            vertical-align: middle;
+        }
+        table tbody tr {
+            transition: background var(--transition);
+        }
+        table tbody tr:hover {
+            background: #f8fafc;
+        }
+        table tbody tr.row-in {
+            border-left: 3px solid #22c55e;
+        }
+        table tbody tr.row-out {
+            border-left: 3px solid #94a3b8;
+        }
+        .badge {
+            display: inline-block;
+            padding: 4px 10px;
+            border-radius: 12px;
+            font-size: 0.7rem;
+            font-weight: 700;
+            letter-spacing: 0.03em;
+            text-transform: uppercase;
+        }
+        .badge-in {
+            background: #d1fae5;
+            color: #065f46;
+        }
+        .badge-out {
+            background: #e2e8f0;
+            color: #475569;
+        }
+        .badge-active {
+            background: #fef3c7;
+            color: #92400e;
+            animation: pulse-badge 2s ease-in-out infinite;
+        }
+        .table-photo-thumb {
+            width: 50px;
+            height: 38px;
+            object-fit: cover;
+            border-radius: 4px;
+            cursor: pointer;
+            border: 2px solid transparent;
+            transition: all var(--transition);
+        }
+        .table-photo-thumb:hover {
+            border-color: var(--primary-light);
+            transform: scale(2.5);
+            z-index: 20;
+            position: relative;
+            box-shadow: var(--shadow-xl);
+            border-radius: 6px;
+        }
+        .vehicle-no-cell {
+            font-family: var(--font-mono);
+            font-weight: 700;
+            letter-spacing: 0.04em;
+            color: var(--primary-dark);
+            text-transform: uppercase;
+        }
+        .time-cell {
+            font-family: var(--font-mono);
+            font-size: 0.8rem;
+            color: var(--text-secondary);
+            white-space: nowrap;
+        }
+        .empty-state {
+            text-align: center;
+            padding: 40px 20px;
+            color: var(--text-muted);
+        }
+        .empty-state .empty-icon {
+            font-size: 48px;
+            margin-bottom: 12px;
+            opacity: 0.5;
+        }
+
+        /* ========== TOAST ========== */
+        .toast-container {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            z-index: 9999;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            pointer-events: none;
+        }
+        .toast {
+            pointer-events: auto;
+            padding: 14px 20px;
+            border-radius: var(--radius-sm);
+            font-weight: 600;
+            font-size: 0.85rem;
+            box-shadow: var(--shadow-xl);
+            animation: slideInRight 0.35s ease-out, fadeOutRight 0.35s ease-in forwards;
+            animation-delay: 0s, 2.5s;
+            max-width: 400px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        .toast-success {
+            background: #059669;
+            color: #fff;
+        }
+        .toast-warning {
+            background: #f59e0b;
+            color: #1e293b;
+        }
+        .toast-info {
+            background: #3b82f6;
+            color: #fff;
+        }
+        .toast-error {
+            background: #dc2626;
+            color: #fff;
+        }
+        @keyframes slideInRight {
+            from {
+                transform: translateX(120%);
+                opacity: 0;
+            }
+            to {
+                transform: translateX(0);
+                opacity: 1;
+            }
+        }
+        @keyframes fadeOutRight {
+            from {
+                transform: translateX(0);
+                opacity: 1;
+            }
+            to {
+                transform: translateX(120%);
+                opacity: 0;
+            }
+        }
+
+        /* ========== MODAL ========== */
+        .modal-overlay {
+            position: fixed;
+            inset: 0;
+            background: rgba(0, 0, 0, 0.75);
+            z-index: 5000;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            animation: fadeIn 0.2s ease-out;
+            padding: 20px;
+        }
+        .modal {
+            background: #fff;
+            border-radius: var(--radius-lg);
+            padding: 24px;
+            max-width: 600px;
+            width: 100%;
+            max-height: 90vh;
+            overflow-y: auto;
+            box-shadow: var(--shadow-xl);
+            position: relative;
+            animation: scaleIn 0.25s ease-out;
+        }
+        .modal img {
+            width: 100%;
+            border-radius: var(--radius);
+        }
+        .modal-close {
+            position: absolute;
+            top: 12px;
+            right: 12px;
+            width: 36px;
+            height: 36px;
+            border-radius: 50%;
+            background: #1e293b;
+            color: #fff;
+            border: none;
+            cursor: pointer;
+            font-size: 18px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: var(--transition);
+            z-index: 10;
+        }
+        .modal-close:hover {
+            background: #dc2626;
+            transform: scale(1.1);
+        }
+        @keyframes fadeIn {
+            from {
+                opacity: 0;
+            }
+            to {
+                opacity: 1;
+            }
+        }
+        @keyframes scaleIn {
+            from {
+                transform: scale(0.9);
+                opacity: 0;
+            }
+            to {
+                transform: scale(1);
+                opacity: 1;
+            }
+        }
+
+        /* ========== UTILITY ========== */
+        .text-mono {
+            font-family: var(--font-mono);
+        }
+        .text-uppercase {
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+        }
+        .mt-2 {
+            margin-top: 8px;
+        }
+        .mt-3 {
+            margin-top: 12px;
+        }
+        .mb-2 {
+            margin-bottom: 8px;
+        }
+        .gap-2 {
+            gap: 8px;
+        }
+        .flex-wrap {
+            display: flex;
+            flex-wrap: wrap;
+        }
+        .w-full {
+            width: 100%;
+        }
+
+        /* ========== SCROLLBAR ========== */
+        ::-webkit-scrollbar {
+            width: 6px;
+            height: 6px;
+        }
+        ::-webkit-scrollbar-track {
+            background: transparent;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #cbd5e1;
+            border-radius: 3px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: #94a3b8;
+        }
+
+        /* ========== PRINT / EXPORT ========== */
+        @media print {
+            .header,
+            .camera-section,
+            .filter-bar,
+            .btn,
+            .toast-container,
+            .modal-overlay {
+                display: none !important;
+            }
+            .table-section {
+                grid-column: 1;
+            }
+            .main-container {
+                display: block;
+                padding: 0;
+            }
+        }
+    </style>
+</head>
+<body>
+
+    <!-- ==================== HEADER ==================== -->
+    <header class="header">
+        <div class="header-brand">
+            <div class="header-icon">🚗</div>
+            <div>
+                <div class="header-title">Vehicle Parking Manager</div>
+                <div class="header-subtitle">Automated In/Out Tracking System</div>
+            </div>
+        </div>
+        <div class="header-badge">
+            <span class="live-dot"></span> System Active
+        </div>
+    </header>
+
+    <!-- ==================== MAIN CONTAINER ==================== -->
+    <div class="main-container">
+
+        <!-- CAMERA SECTION -->
+        <div class="camera-section">
+            <!-- Live Camera Card -->
+            <div class="card" id="cameraCard">
+                <div class="card-header">
+                    <span class="card-title"><span class="icon-dot camera"></span> Live Camera</span>
+                    <button class="btn btn-outline btn-sm" onclick="switchCamera()" title="Switch Camera">🔄 Flip</button>
+                </div>
+                <div class="camera-container" id="cameraContainer">
+                    <video id="videoFeed" autoplay playsinline muted></video>
+                    <div class="camera-placeholder" id="cameraPlaceholder">
+                        <span class="cam-icon">📷</span>
+                        <p>Camera feed will appear here</p>
+                    </div>
+                    <div class="camera-overlay" id="cameraOverlay" style="display:none;">
+                        <div class="focus-rect"></div>
+                    </div>
+                </div>
+                <div class="camera-controls">
+                    <button class="btn btn-primary" id="btnCapture" onclick="capturePhoto()">
+                        📸 Capture Vehicle
+                    </button>
+                    <button class="btn btn-outline btn-sm" onclick="startCamera()" id="btnStartCamera">
+                        ▶️ Start Camera
+                    </button>
+                    <button class="btn btn-outline btn-sm" onclick="stopCamera()" id="btnStopCamera" style="display:none;">
+                        ⏹️ Stop
+                    </button>
+                    <label class="btn btn-outline btn-sm" style="cursor:pointer;">
+                        📁 Upload Photo
+                        <input type="file" accept="image/*" capture="environment" style="display:none;"
+                        onchange="handleFileUpload(this)">
+                    </label>
+                </div>
+            </div>
+
+            <!-- Preview & OCR Card -->
+            <div class="card" id="previewCard">
+                <div class="card-header">
+                    <span class="card-title"><span class="icon-dot preview"></span> Captured Photo & OCR</span>
+                    <span id="ocrStatus" style="font-size:0.75rem;color:var(--text-muted);">Waiting for capture...</span>
+                </div>
+                <div class="preview-image-container" id="previewContainer">
+                    <span class="preview-placeholder" id="previewPlaceholder">No photo captured yet</span>
+                    <img id="previewImage" src="" alt="Captured" style="display:none;">
+                </div>
+                <div id="ocrResultContainer" style="margin-top:10px;"></div>
+                <div class="input-group mt-3">
+                    <input type="text" class="input-field" id="vehicleNoInput"
+                    placeholder="Vehicle Number (e.g. MH12AB1234)" autocomplete="off">
+                    <button class="btn btn-success" id="btnConfirmEntry" onclick="confirmEntry()" disabled>
+                        ✅ Confirm Entry
+                    </button>
+                </div>
+                <small style="color:var(--text-muted);display:block;margin-top:6px;">
+                    💡 OCR auto-fills the number. You can edit it before confirming.
+                </small>
+            </div>
+        </div>
+
+        <!-- STATS ROW -->
+        <div class="stats-row" id="statsRow">
+            <div class="stat-card">
+                <div class="stat-icon blue">📋</div>
+                <div>
+                    <div class="stat-value" id="statTotal">0</div>
+                    <div class="stat-label">Total Entries</div>
+                </div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-icon green">🟢</div>
+                <div>
+                    <div class="stat-value" id="statActive">0</div>
+                    <div class="stat-label">Currently Parked</div>
+                </div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-icon amber">📅</div>
+                <div>
+                    <div class="stat-value" id="statToday">0</div>
+                    <div class="stat-label">Today's Entries</div>
+                </div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-icon purple">💾</div>
+                <div>
+                    <div class="stat-value" id="statStorage">0 KB</div>
+                    <div class="stat-label">Storage Used</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- TABLE SECTION -->
+        <div class="table-section card" id="tableSectionCard">
+            <div class="card-header">
+                <span class="card-title"><span class="icon-dot table"></span> Entry Records</span>
+                <div style="display:flex;gap:8px;flex-wrap:wrap;">
+                    <button class="btn btn-outline btn-sm" onclick="exportCSV()">📥 Export CSV</button>
+                    <button class="btn btn-danger btn-sm" onclick="clearAllEntries()">🗑️ Clear All</button>
+                </div>
+            </div>
+            <!-- Filter Bar -->
+            <div class="filter-bar">
+                <input type="text" class="input-field" id="filterVehicleNo"
+                placeholder="🔍 Filter by Vehicle No..."
+                oninput="renderTable()">
+                <div class="sort-btn-group" id="sortBtnGroup">
+                    <button class="sort-btn active" data-sort="time-desc" onclick="setSort('time-desc', this)">⏱️ Newest</button>
+                    <button class="sort-btn" data-sort="time-asc" onclick="setSort('time-asc', this)">⏱️ Oldest</button>
+                    <button class="sort-btn" data-sort="az" onclick="setSort('az', this)">🔤 A→Z</button>
+                    <button class="sort-btn" data-sort="za" onclick="setSort('za', this)">🔤 Z→A</button>
+                </div>
+            </div>
+            <!-- Table -->
+            <div class="table-wrapper" id="tableWrapper">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>SN</th>
+                            <th>Date</th>
+                            <th>Vehicle No</th>
+                            <th>In Time</th>
+                            <th>Out Time</th>
+                            <th>Status</th>
+                            <th>Photo</th>
+                            <th>Action</th>
+                        </tr>
+                    </thead>
+                    <tbody id="tableBody">
+                        <tr class="empty-state">
+                            <td colspan="8">
+                                <div class="empty-icon">📭</div>
+                                <p>No entries yet. Capture a vehicle photo to get started!</p>
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <!-- ==================== PHOTO MODAL ==================== -->
+    <div class="modal-overlay" id="photoModal" style="display:none;" onclick="closePhotoModal(event)">
+        <div class="modal" onclick="event.stopPropagation()">
+            <button class="modal-close" onclick="closePhotoModal()">✕</button>
+            <img id="modalImage" src="" alt="Vehicle Photo">
+        </div>
+    </div>
+
+    <!-- ==================== TOAST CONTAINER ==================== -->
+    <div class="toast-container" id="toastContainer"></div>
+
+    <script>
+        (function() {
+            // ==================== DOM ELEMENTS ====================
+            const videoFeed = document.getElementById('videoFeed');
+            const cameraPlaceholder = document.getElementById('cameraPlaceholder');
+            const cameraOverlay = document.getElementById('cameraOverlay');
+            const btnCapture = document.getElementById('btnCapture');
+            const btnStartCamera = document.getElementById('btnStartCamera');
+            const btnStopCamera = document.getElementById('btnStopCamera');
+            const btnConfirmEntry = document.getElementById('btnConfirmEntry');
+            const previewImage = document.getElementById('previewImage');
+            const previewPlaceholder = document.getElementById('previewPlaceholder');
+            const vehicleNoInput = document.getElementById('vehicleNoInput');
+            const ocrResultContainer = document.getElementById('ocrResultContainer');
+            const ocrStatus = document.getElementById('ocrStatus');
+            const tableBody = document.getElementById('tableBody');
+            const filterVehicleNo = document.getElementById('filterVehicleNo');
+            const photoModal = document.getElementById('photoModal');
+            const modalImage = document.getElementById('modalImage');
+            const toastContainer = document.getElementById('toastContainer');
+            const statTotal = document.getElementById('statTotal');
+            const statActive = document.getElementById('statActive');
+            const statToday = document.getElementById('statToday');
+            const statStorage = document.getElementById('statStorage');
+
+            // ==================== STATE ====================
+            let mediaStream = null;
+            let currentFacingMode = 'environment'; // rear camera
+            let capturedPhotoBase64 = null;
+            let ocrExtractedText = '';
+            let ocrConfidence = 0;
+            let currentSort = 'time-desc'; // default: newest first
+            let entries = [];
+
+            // ==================== STORAGE ====================
+            const STORAGE_KEY = 'vpm_entries_v2';
+
+            function loadEntries() {
+                try {
+                    const raw = localStorage.getItem(STORAGE_KEY);
+                    if (raw) {
+                        entries = JSON.parse(raw);
+                        // Validate entries
+                        if (!Array.isArray(entries)) entries = [];
+                        entries = entries.filter(e => e && typeof e === 'object' && e.vehicleNo);
+                    } else {
+                        entries = [];
+                    }
+                } catch (e) {
+                    console.error('Failed to load entries:', e);
+                    entries = [];
+                }
+            }
+
+            function saveEntries() {
+                try {
+                    // Compress older photos further if needed
+                    const toSave = entries.map(e => ({
+                        ...e,
+                        // Keep photo as-is (already compressed at capture time)
+                    }));
+                    const json = JSON.stringify(toSave);
+                    localStorage.setItem(STORAGE_KEY, json);
+                    updateStorageStat();
+                } catch (e) {
+                    if (e.name === 'QuotaExceededError') {
+                        showToast('Storage full! Please delete old entries.', 'error');
+                    } else {
+                        console.error('Failed to save entries:', e);
+                        showToast('Error saving data. Storage may be full.', 'error');
+                    }
+                }
+            }
+
+            function updateStorageStat() {
+                try {
+                    const raw = localStorage.getItem(STORAGE_KEY) || '';
+                    const bytes = new Blob([raw]).size;
+                    const kb = (bytes / 1024).toFixed(1);
+                    statStorage.textContent = kb + ' KB';
+                    if (kb > 4000) {
+                        statStorage.style.color = '#dc2626';
+                    } else if (kb > 2000) {
+                        statStorage.style.color = '#d97706';
+                    } else {
+                        statStorage.style.color = '';
+                    }
+                } catch (e) {
+                    statStorage.textContent = 'N/A';
+                }
+            }
+
+            // ==================== CAMERA ====================
+            async function startCamera() {
+                try {
+                    if (mediaStream) {
+                        stopCameraStream();
+                    }
+                    const constraints = {
+                        video: {
+                            facingMode: currentFacingMode,
+                            width: { ideal: 1280 },
+                            height: { ideal: 720 },
+                        },
+                        audio: false,
+                    };
+                    mediaStream = await navigator.mediaDevices.getUserMedia(constraints);
+                    videoFeed.srcObject = mediaStream;
+                    videoFeed.style.display = 'block';
+                    cameraPlaceholder.style.display = 'none';
+                    cameraOverlay.style.display = 'flex';
+                    btnStartCamera.style.display = 'none';
+                    btnStopCamera.style.display = 'inline-flex';
+                    btnCapture.disabled = false;
+                    ocrStatus.textContent = 'Camera ready...';
+                } catch (err) {
+                    console.error('Camera error:', err);
+                    cameraPlaceholder.innerHTML =
+                        '<span class="cam-icon">⚠️</span><p>Camera access denied or not available.<br>Use "Upload Photo" instead.</p>';
+                    cameraPlaceholder.style.display = 'flex';
+                    showToast('Camera unavailable. Please use photo upload.', 'warning');
+                }
+            }
+
+            function stopCamera() {
+                stopCameraStream();
+                videoFeed.style.display = 'none';
+                cameraPlaceholder.style.display = 'flex';
+                cameraPlaceholder.innerHTML = '<span class="cam-icon">📷</span><p>Camera stopped</p>';
+                cameraOverlay.style.display = 'none';
+                btnStartCamera.style.display = 'inline-flex';
+                btnStopCamera.style.display = 'none';
+                btnCapture.disabled = true;
+                ocrStatus.textContent = 'Camera stopped';
+            }
+
+            function stopCameraStream() {
+                if (mediaStream) {
+                    mediaStream.getTracks().forEach(track => track.stop());
+                    mediaStream = null;
+                }
+                videoFeed.srcObject = null;
+            }
+
+            function switchCamera() {
+                currentFacingMode = currentFacingMode === 'environment' ? 'user' : 'environment';
+                if (mediaStream) {
+                    startCamera();
+                }
+            }
+
+            // ==================== PHOTO CAPTURE ====================
+            function capturePhoto() {
+                if (!mediaStream || !videoFeed.srcObject) {
+                    showToast('Please start the camera first.', 'warning');
+                    return;
+                }
+                const video = videoFeed;
+                const canvas = document.createElement('canvas');
+                canvas.width = video.videoWidth || 1280;
+                canvas.height = video.videoHeight || 720;
+                const ctx = canvas.getContext('2d');
+                ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+
+                // Compress image for storage
+                const compressedDataUrl = canvas.toDataURL('image/jpeg', 0.55);
+                capturedPhotoBase64 = compressedDataUrl;
+
+                // Show preview
+                previewImage.src = compressedDataUrl;
+                previewImage.style.display = 'block';
+                previewPlaceholder.style.display = 'none';
+                ocrStatus.textContent = 'Photo captured! Running OCR...';
+                ocrResultContainer.innerHTML = '';
+                vehicleNoInput.value = '';
+                btnConfirmEntry.disabled = true;
+
+                // Run OCR
+                runOCR(canvas);
+            }
+
+            function handleFileUpload(input) {
+                const file = input.files[0];
+                if (!file) return;
+                const reader = new FileReader();
+                reader.onload = function(e) {
+                    const img = new Image();
+                    img.onload = function() {
+                        const canvas = document.createElement('canvas');
+                        // Resize if needed
+                        const maxW = 1280;
+                        const maxH = 720;
+                        let w = img.width;
+                        let h = img.height;
+                        if (w > maxW) {
+                            h = (h * maxW) / w;
+                            w = maxW;
+                        }
+                        if (h > maxH) {
+                            w = (w * maxH) / h;
+                            h = maxH;
+                        }
+                        canvas.width = w;
+                        canvas.height = h;
+                        const ctx = canvas.getContext('2d');
+                        ctx.drawImage(img, 0, 0, w, h);
+                        const compressedDataUrl = canvas.toDataURL('image/jpeg', 0.55);
+                        capturedPhotoBase64 = compressedDataUrl;
+                        previewImage.src = compressedDataUrl;
+                        previewImage.style.display = 'block';
+                        previewPlaceholder.style.display = 'none';
+                        ocrStatus.textContent = 'Photo loaded! Running OCR...';
+                        ocrResultContainer.innerHTML = '';
+                        vehicleNoInput.value = '';
+                        btnConfirmEntry.disabled = true;
+                        runOCR(canvas);
+                    };
+                    img.src = e.target.result;
+                };
+                reader.readAsDataURL(file);
+                input.value = ''; // reset
+            }
+
+            // ==================== OCR ====================
+            async function runOCR(canvas) {
+                ocrStatus.textContent = '🔍 Running OCR... (this may take a few seconds)';
+                ocrResultContainer.innerHTML =
+                    '<div style="display:flex;align-items:center;gap:8px;padding:10px;color:#3b82f6;">' +
+                    '<span class="spinner" style="width:18px;height:18px;border:2px solid #3b82f6;border-top-color:transparent;border-radius:50%;animation:spin 0.7s linear infinite;display:inline-block;"></span>' +
+                    'Extracting vehicle number...</div>';
+
+                try {
+                    // Preprocess: convert to grayscale and increase contrast for better OCR
+                    const processedCanvas = preprocessForOCR(canvas);
+
+                    const result = await Tesseract.recognize(processedCanvas, 'eng', {
+                        logger: (m) => {
+                            if (m.status === 'recognizing text') {
+                                const progress = Math.round(m.progress * 100);
+                                ocrStatus.textContent = `🔍 OCR: ${progress}%`;
+                            }
+                        },
+                    });
+
+                    ocrExtractedText = result.data.text || '';
+                    ocrConfidence = result.data.confidence || 0;
+
+                    // Extract vehicle number from OCR text
+                    const extractedNo = extractVehicleNumber(ocrExtractedText);
+
+                    if (extractedNo) {
+                        vehicleNoInput.value = extractedNo;
+                        btnConfirmEntry.disabled = false;
+                        const confPercent = Math.round(ocrConfidence);
+                        let confClass = 'confidence-low';
+                        let confLabel = 'Low confidence';
+                        if (confPercent >= 70) {
+                            confClass = 'confidence-high';
+                            confLabel = 'High confidence';
+                        } else if (confPercent >= 40) {
+                            confClass = 'confidence-medium';
+                            confLabel = 'Medium confidence';
+                        }
+                        ocrResultContainer.innerHTML = `
+                                <div class="ocr-result ${confClass}">
+                                    <span>✅</span>
+                                    <span><strong>Detected:</strong> ${escapeHTML(extractedNo)}</span>
+                                    <span style="font-size:0.75rem;">(${confLabel}: ${confPercent}%)</span>
+                                </div>`;
+                        ocrStatus.textContent = `OCR complete (${confPercent}% confidence)`;
+                        showToast(`Vehicle number detected: ${extractedNo}`, 'success');
+                    } else {
+                        ocrResultContainer.innerHTML = `
+                                <div class="ocr-result confidence-low">
+                                    <span>⚠️</span>
+                                    <span>Could not detect a valid vehicle number.</span>
+                                    <span style="font-size:0.75rem;">Raw text: "${escapeHTML(ocrExtractedText.trim())}"</span>
+                                </div>`;
+                        ocrStatus.textContent = 'OCR could not detect plate. Please enter manually.';
+                        vehicleNoInput.value = '';
+                        vehicleNoInput.focus();
+                        btnConfirmEntry.disabled = true;
+                        showToast('Please enter vehicle number manually.', 'warning');
+                    }
+                } catch (err) {
+                    console.error('OCR error:', err);
+                    ocrResultContainer.innerHTML = `
+                            <div class="ocr-result confidence-low">
+                                <span>❌</span>
+                                <span>OCR failed. Please enter vehicle number manually.</span>
+                            </div>`;
+                    ocrStatus.textContent = 'OCR error. Manual entry required.';
+                    vehicleNoInput.value = '';
+                    vehicleNoInput.focus();
+                    btnConfirmEntry.disabled = true;
+                }
+            }
+
+            function preprocessForOCR(canvas) {
+                const newCanvas = document.createElement('canvas');
+                newCanvas.width = canvas.width;
+                newCanvas.height = canvas.height;
+                const ctx = newCanvas.getContext('2d');
+                // Draw original
+                ctx.drawImage(canvas, 0, 0);
+                // Get image data
+                const imageData = ctx.getImageData(0, 0, newCanvas.width, newCanvas.height);
+                const data = imageData.data;
+                // Convert to grayscale and increase contrast
+                for (let i = 0; i < data.length; i += 4) {
+                    const r = data[i];
+                    const g = data[i + 1];
+                    const b = data[i + 2];
+                    // Grayscale
+                    let gray = 0.299 * r + 0.587 * g + 0.114 * b;
+                    // Increase contrast
+                    gray = ((gray - 128) * 1.6) + 128;
+                    gray = Math.max(0, Math.min(255, gray));
+                    data[i] = gray;
+                    data[i + 1] = gray;
+                    data[i + 2] = gray;
+                }
+                ctx.putImageData(imageData, 0, 0);
+                return newCanvas;
+            }
+
+            function extractVehicleNumber(text) {
+                if (!text) return null;
+                // Normalize: remove extra spaces, keep alphanumeric
+                const cleaned = text.toUpperCase().replace(/[^A-Z0-9\s]/g, ' ').replace(/\s+/g, ' ').trim();
+
+                // Indian vehicle number patterns (normalized - spaces removed for matching)
+                const noSpaces = cleaned.replace(/\s/g, '');
+
+                // Pattern 1: Standard - XX NN XX NNNN (e.g., MH12AB1234)
+                const pattern1 = /([A-Z]{2})(\d{1,2})([A-Z]{1,2})(\d{4})/;
+
+                // Pattern 2: BH series - XX NN BH NNNN
+                const pattern2 = /([A-Z]{2})(\d{1,2})(BH)(\d{4})/;
+
+                // Pattern 3: Some states have 3 letters - e.g., XXX NN X NNNN (rare)
+                const pattern3 = /([A-Z]{3})(\d{1,2})([A-Z]{1,2})(\d{4})/;
+
+                let match = noSpaces.match(pattern1) || noSpaces.match(pattern2) || noSpaces.match(pattern3);
+
+                if (match) {
+                    // Reconstruct with proper spacing: XX NN XX NNNN
+                    const formatted = `${match[1]} ${match[2]} ${match[3]} ${match[4]}`;
+                    return formatted.replace(/\s+/g, ' ').trim();
+                }
+
+                // Fallback: look for any sequence that looks like a plate
+                const fallbackPattern = /[A-Z]{2,3}\s?\d{1,2}\s?[A-Z]{1,3}\s?\d{4}/;
+                const fallbackMatch = cleaned.match(fallbackPattern);
+                if (fallbackMatch) {
+                    return fallbackMatch[0].replace(/\s+/g, ' ').trim();
+                }
+
+                return null;
+            }
+
+            // ==================== ENTRY CONFIRMATION ====================
+            function confirmEntry() {
+                const rawVehicleNo = vehicleNoInput.value.trim();
+                if (!rawVehicleNo) {
+                    showToast('Please enter a vehicle number.', 'warning');
+                    vehicleNoInput.focus();
+                    return;
+                }
+                if (!capturedPhotoBase64) {
+                    showToast('Please capture or upload a photo first.', 'warning');
+                    return;
+                }
+
+                // Normalize vehicle number for comparison
+                const normalizedInput = normalizeVehicleNo(rawVehicleNo);
+                if (normalizedInput.length < 6) {
+                    showToast('Invalid vehicle number. Please enter a valid number.', 'warning');
+                    return;
+                }
+
+                const now = new Date();
+                const nowISO = now.toISOString();
+                const dateStr = formatDate(now);
+                const timeStr = formatTime(now);
+
+                // Check if this vehicle already has an "in" entry without "out"
+                const existingInEntry = findActiveInEntry(normalizedInput);
+
+                if (existingInEntry) {
+                    // Update the out time of the existing entry
+                    existingInEntry.outTime = nowISO;
+                    existingInEntry.outDateStr = dateStr;
+                    existingInEntry.outTimeStr = timeStr;
+                    saveEntries();
+                    renderTable();
+                    updateStats();
+                    showToast(`🚗 Vehicle OUT! ${rawVehicleNo.toUpperCase()} - Out time recorded.`, 'warning');
+                    // Flash the updated row
+                    highlightEntry(existingInEntry.sn);
+                    resetCaptureState();
+                } else {
+                    // Create new entry
+                    const newEntry = {
+                        sn: getNextSN(),
+                        date: dateStr,
+                        vehicleNo: normalizedInput,
+                        displayVehicleNo: rawVehicleNo.toUpperCase().replace(/\s+/g, ' ').trim(),
+                        inTime: nowISO,
+                        inDateStr: dateStr,
+                        inTimeStr: timeStr,
+                        outTime: null,
+                        outDateStr: null,
+                        outTimeStr: null,
+                        photo: capturedPhotoBase64,
+                    };
+                    entries.push(newEntry);
+                    saveEntries();
+                    renderTable();
+                    updateStats();
+                    showToast(`✅ New Entry! ${newEntry.displayVehicleNo} - In time: ${timeStr}`, 'success');
+                    highlightEntry(newEntry.sn);
+                    resetCaptureState();
+                }
+            }
+
+            function findActiveInEntry(normalizedNo) {
+                // Find an entry where vehicle number matches and outTime is null
+                return entries.find(e =>
+                    normalizeVehicleNo(e.vehicleNo) === normalizedNo && !e.outTime
+                );
+            }
+
+            function resetCaptureState() {
+                capturedPhotoBase64 = null;
+                ocrExtractedText = '';
+                ocrConfidence = 0;
+                vehicleNoInput.value = '';
+                btnConfirmEntry.disabled = true;
+                previewImage.style.display = 'none';
+                previewPlaceholder.style.display = 'flex';
+                previewImage.src = '';
+                ocrResultContainer.innerHTML = '';
+                ocrStatus.textContent = 'Waiting for capture...';
+            }
+
+            function highlightEntry(sn) {
+                setTimeout(() => {
+                    const rows = tableBody.querySelectorAll('tr');
+                    rows.forEach(row => {
+                        if (row.dataset && row.dataset.sn == sn) {
+                            row.style.background = '#fef3c7';
+                            row.style.transition = 'background 0.5s';
+                            setTimeout(() => {
+                                row.style.background = '';
+                            }, 2000);
+                        }
+                    });
+                }, 100);
+            }
+
+            // ==================== NORMALIZE ====================
+            function normalizeVehicleNo(no) {
+                return no.toUpperCase().replace(/[^A-Z0-9]/g, '');
+            }
+
+            // ==================== FORMATTING ====================
+            function formatDate(date) {
+                const d = new Date(date);
+                const day = String(d.getDate()).padStart(2, '0');
+                const month = String(d.getMonth() + 1).padStart(2, '0');
+                const year = d.getFullYear();
+                return `${day}/${month}/${year}`;
+            }
+
+            function formatTime(date) {
+                const d = new Date(date);
+                const h = String(d.getHours()).padStart(2, '0');
+                const m = String(d.getMinutes()).padStart(2, '0');
+                const s = String(d.getSeconds()).padStart(2, '0');
+                return `${h}:${m}:${s}`;
+            }
+
+            function getNextSN() {
+                if (entries.length === 0) return 1;
+                const maxSN = Math.max(...entries.map(e => e.sn || 0));
+                return maxSN + 1;
+            }
+
+            // ==================== TABLE RENDERING ====================
+            function getFilteredAndSortedEntries() {
+                let filtered = [...entries];
+                // Filter by vehicle number
+                const filterText = normalizeVehicleNo(filterVehicleNo.value || '');
+                if (filterText) {
+                    filtered = filtered.filter(e =>
+                        normalizeVehicleNo(e.vehicleNo).includes(filterText)
+                    );
+                }
+                // Sort
+                switch (currentSort) {
+                    case 'time-desc':
+                        filtered.sort((a, b) => new Date(b.inTime) - new Date(a.inTime));
+                        break;
+                    case 'time-asc':
+                        filtered.sort((a, b) => new Date(a.inTime) - new Date(b.inTime));
+                        break;
+                    case 'az':
+                        filtered.sort((a, b) => normalizeVehicleNo(a.vehicleNo).localeCompare(normalizeVehicleNo(b
+                            .vehicleNo)));
+                        break;
+                    case 'za':
+                        filtered.sort((a, b) => normalizeVehicleNo(b.vehicleNo).localeCompare(normalizeVehicleNo(a
+                            .vehicleNo)));
+                        break;
+                    default:
+                        filtered.sort((a, b) => new Date(b.inTime) - new Date(a.inTime));
+                }
+                return filtered;
+            }
+
+            function renderTable() {
+                const filtered = getFilteredAndSortedEntries();
+                if (filtered.length === 0) {
+                    tableBody.innerHTML = `
+                            <tr class="empty-state">
+                                <td colspan="8">
+                                    <div class="empty-icon">📭</div>
+                                    <p>${entries.length === 0 ? 'No entries yet. Capture a vehicle photo to get started!' : 'No entries match the filter.'}</p>
+                                </td>
+                            </tr>`;
+                } else {
+                    tableBody.innerHTML = filtered.map(e => {
+                        const isActive = !e.outTime;
+                        const rowClass = isActive ? 'row-in' : 'row-out';
+                        const statusBadge = isActive ?
+                            '<span class="badge badge-active">🟢 PARKED</span>' :
+                            '<span class="badge badge-out">✅ DONE</span>';
+                        const outTimeDisplay = e.outTimeStr || '<span style="color:#94a3b8;">—</span>';
+                        const photoThumb = e.photo ?
+                            `<img src="${e.photo}" class="table-photo-thumb" 
+                                        onclick="event.stopPropagation();openPhotoModal('${e.photo}')" 
+                                        alt="Vehicle photo" loading="lazy">` :
+                            '<span style="color:#94a3b8;">No photo</span>';
+                        return `
+                                <tr class="${rowClass}" data-sn="${e.sn}">
+                                    <td><strong>${e.sn}</strong></td>
+                                    <td>${e.date || e.inDateStr || '—'}</td>
+                                    <td class="vehicle-no-cell">${escapeHTML(e.displayVehicleNo || e.vehicleNo)}</td>
+                                    <td class="time-cell">${e.inTimeStr || formatTime(e.inTime)}</td>
+                                    <td class="time-cell">${outTimeDisplay}</td>
+                                    <td>${statusBadge}</td>
+                                    <td>${photoThumb}</td>
+                                    <td>
+                                        <button class="btn btn-danger btn-xs" onclick="deleteEntry(${e.sn})" title="Delete">🗑️</button>
+                                        ${isActive ? `<button class="btn btn-warning btn-xs" onclick="manualOut(${e.sn})" title="Mark Out" style="margin-left:4px;">🚪 Out</button>` : ''}
+                                    </td>
+                                </tr>`;
+                    }).join('');
+                }
+            }
+
+            function setSort(sortType, btnElement) {
+                currentSort = sortType;
+                // Update active button
+                document.querySelectorAll('#sortBtnGroup .sort-btn').forEach(b => b.classList.remove('active'));
+                if (btnElement) btnElement.classList.add('active');
+                renderTable();
+            }
+
+            // ==================== ACTIONS ====================
+            function deleteEntry(sn) {
+                if (!confirm(`Delete entry SN#${sn}? This cannot be undone.`)) return;
+                entries = entries.filter(e => e.sn !== sn);
+                saveEntries();
+                renderTable();
+                updateStats();
+                showToast(`Entry SN#${sn} deleted.`, 'info');
+            }
+
+            function manualOut(sn) {
+                const entry = entries.find(e => e.sn === sn);
+                if (!entry || entry.outTime) return;
+                const now = new Date();
+                entry.outTime = now.toISOString();
+                entry.outDateStr = formatDate(now);
+                entry.outTimeStr = formatTime(now);
+                saveEntries();
+                renderTable();
+                updateStats();
+                showToast(`🚗 Vehicle OUT! ${entry.displayVehicleNo} - manually marked out.`, 'warning');
+            }
+
+            function clearAllEntries() {
+                if (!confirm('Delete ALL entries? This cannot be undone!')) return;
+                if (!confirm('Are you absolutely sure? All data will be lost.')) return;
+                entries = [];
+                saveEntries();
+                renderTable();
+                updateStats();
+                showToast('All entries cleared.', 'error');
+            }
+
+            function openPhotoModal(photoSrc) {
+                modalImage.src = photoSrc;
+                photoModal.style.display = 'flex';
+                document.body.style.overflow = 'hidden';
+            }
+
+            function closePhotoModal(event) {
+                if (event && event.target !== photoModal) return;
+                photoModal.style.display = 'none';
+                document.body.style.overflow = '';
+                modalImage.src = '';
+            }
+
+            // ==================== EXPORT CSV ====================
+            function exportCSV() {
+                if (entries.length === 0) {
+                    showToast('No entries to export.', 'warning');
+                    return;
+                }
+                const headers = ['SN', 'Date', 'Vehicle No', 'In Time', 'Out Time', 'Status'];
+                const rows = entries.map(e => {
+                    const status = e.outTime ? 'Completed' : 'Parked';
+                    const outTime = e.outTimeStr || '—';
+                    return [
+                        e.sn,
+                        e.date || e.inDateStr || '',
+                        e.displayVehicleNo || e.vehicleNo,
+                        e.inTimeStr || formatTime(e.inTime),
+                        outTime,
+                        status,
+                    ];
+                });
+                const csvContent = [headers, ...rows]
+                    .map(row => row.map(cell => `"${String(cell).replace(/"/g, '""')}"`).join(','))
+                    .join('\n');
+                const blob = new Blob(['\uFEFF' + csvContent], { type: 'text/csv;charset=utf-8;' });
+                const url = URL.createObjectURL(blob);
+                const link = document.createElement('a');
+                link.href = url;
+                link.download = `vehicle_entries_${new Date().toISOString().slice(0,10)}.csv`;
+                document.body.appendChild(link);
+                link.click();
+                document.body.removeChild(link);
+                URL.revokeObjectURL(url);
+                showToast('CSV exported successfully!', 'success');
+            }
+
+            // ==================== TOAST ====================
+            function showToast(message, type = 'info') {
+                const toast = document.createElement('div');
+                toast.className = `toast toast-${type}`;
+                const icons = { success: '✅', warning: '⚠️', info: 'ℹ️', error: '❌' };
+                toast.innerHTML = `<span>${icons[type] || 'ℹ️'}</span> ${message}`;
+                toastContainer.appendChild(toast);
+                // Auto remove after animation
+                setTimeout(() => {
+                    if (toast.parentNode) {
+                        toast.remove();
+                    }
+                }, 3000);
+            }
+
+            // ==================== STATS ====================
+            function updateStats() {
+                const total = entries.length;
+                const active = entries.filter(e => !e.outTime).length;
+                const todayStr = formatDate(new Date());
+                const todayEntries = entries.filter(e => (e.date || e.inDateStr) === todayStr).length;
+
+                statTotal.textContent = total;
+                statActive.textContent = active;
+                statToday.textContent = todayEntries;
+                updateStorageStat();
+            }
+
+            // ==================== UTILS ====================
+            function escapeHTML(str) {
+                const div = document.createElement('div');
+                div.textContent = str;
+                return div.innerHTML;
+            }
+
+            // ==================== KEYBOARD SHORTCUTS ====================
+            document.addEventListener('keydown', function(e) {
+                // Ctrl+Enter or Cmd+Enter to confirm entry
+                if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') {
+                    if (!btnConfirmEntry.disabled && document.activeElement === vehicleNoInput) {
+                        confirmEntry();
+                    }
+                }
+                // Escape to close modal
+                if (e.key === 'Escape') {
+                    if (photoModal.style.display === 'flex') {
+                        closePhotoModal();
+                    }
+                }
+                // Space bar to capture (when not typing in input)
+                if (e.key === ' ' && document.activeElement === document.body && !btnCapture.disabled) {
+                    e.preventDefault();
+                    capturePhoto();
+                }
+            });
+
+            // ==================== VEHICLE NO INPUT - LIVE VALIDATION ====================
+            vehicleNoInput.addEventListener('input', function() {
+                const val = this.value.trim();
+                if (val.length >= 4 && capturedPhotoBase64) {
+                    btnConfirmEntry.disabled = false;
+                } else if (!capturedPhotoBase64) {
+                    btnConfirmEntry.disabled = true;
+                } else {
+                    btnConfirmEntry.disabled = val.length < 4;
+                }
+                // Auto uppercase
+                this.value = this.value.toUpperCase();
+            });
+
+            // ==================== INIT ====================
+            function init() {
+                loadEntries();
+                renderTable();
+                updateStats();
+                // Try to start camera automatically
+                startCamera().catch(() => {
+                    console.log('Auto camera start failed. User can start manually.');
+                });
+                // Set default sort button active
+                const defaultSortBtn = document.querySelector('[data-sort="time-desc"]');
+                if (defaultSortBtn) defaultSortBtn.classList.add('active');
+            }
+
+            // ==================== CLEANUP ON PAGE UNLOAD ====================
+            window.addEventListener('beforeunload', () => {
+                stopCameraStream();
+            });
+
+            // ==================== EXPOSE GLOBALLY ====================
+            window.capturePhoto = capturePhoto;
+            window.startCamera = startCamera;
+            window.stopCamera = stopCamera;
+            window.switchCamera = switchCamera;
+            window.confirmEntry = confirmEntry;
+            window.deleteEntry = deleteEntry;
+            window.manualOut = manualOut;
+            window.clearAllEntries = clearAllEntries;
+            window.openPhotoModal = openPhotoModal;
+            window.closePhotoModal = closePhotoModal;
+            window.exportCSV = exportCSV;
+            window.setSort = setSort;
+            window.handleFileUpload = handleFileUpload;
+            window.renderTable = renderTable;
+
+            // ==================== START ====================
+            init();
+            console.log('🚗 Vehicle Parking Manager initialized!');
+            console.log('📸 Capture a vehicle photo to get started.');
+            console.log('💡 Tip: Press SPACE bar to capture when camera is active.');
+            console.log('💡 Tip: Ctrl+Enter to confirm entry quickly.');
+        })();
+    </script>
+</body>
+</html>
